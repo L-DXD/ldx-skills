@@ -1,7 +1,0 @@
-{
-  "PROJECT_LABEL": "LifeCanvas",
-  "SENTRY_ORG_URL": "https://idstrust-lu.sentry.io",
-  "REPO_COMMIT_BASE_URL": "http://10.0.101.108:3000/share/dw-life-platform-group/dw-life-platform-frontend/-/commit",
-  "ALLOWED_TAG_KEYS": ["browser", "category", "device", "environment", "level", "lifebookId", "os", "release", "replayId", "url"],
-  "CATEGORY_UNION": ["lifebook", "export", "viewer"]
-}
