@@ -254,7 +254,7 @@ cp /Users/2509-n0032/repos/dw-life-platform-frontend/app/api/sentry-webhook/rout
 3. `const allowedTagKeys = [ 'browser', ... ]` 배열 정의 전체를 →
    `const allowedTagKeys = {{ALLOWED_TAG_KEYS}}`
 4. `const shortKeys = [...]` 배열 정의를 →
-   `const shortKeys = allowedTagKeys.filter((k) => k !== 'replayId')` (replayId는 short가 아니므로 derive)
+   `const shortKeys = allowedTagKeys.filter((k) => k !== 'url')` (`url`은 long-form이므로 short에서 제외, `replayId`는 short에 포함)
 5. Slack text의 `[LifeCanvas:${environment}]` → `[{{PROJECT_LABEL}}:${environment}]`
 
 - [ ] **Step 3: 렌더 + placeholder 잔존 검증**
@@ -276,7 +276,7 @@ grep -q "SENTRY_ORG_URL = 'https://idstrust-lu.sentry.io'" tmp/webhook-route.ren
 grep -q "REPO_COMMIT_BASE = 'http://10.0.101.108" tmp/webhook-route.rendered.ts && echo "OK repo"
 grep -q "\[LifeCanvas:\${environment}\]" tmp/webhook-route.rendered.ts && echo "OK label"
 grep -q "lifebookId" tmp/webhook-route.rendered.ts && echo "OK domain tag in allowed"
-grep -q "shortKeys = allowedTagKeys.filter" tmp/webhook-route.rendered.ts && echo "OK shortKeys derive"
+grep -q "shortKeys = allowedTagKeys.filter((k) => k !== 'url')" tmp/webhook-route.rendered.ts && echo "OK shortKeys derive"
 ```
 
 Expected: 5개 OK 모두 출력. 하나라도 누락 시 Step 2 재작업.
