@@ -70,7 +70,10 @@ ldx-skills/skills/sentry-slack-setup/
 
 ### Phase 1. Sentry SDK 단계
 - `@sentry/nextjs` 설치 여부 확인
-- 미설치 → 사용자 동의 후 `npx @sentry/wizard@latest -i nextjs` 실행
+- 미설치:
+  - `@sentry/wizard`는 인터랙티브 명령(Sentry 로그인 / org-project 선택)이므로 Claude의 Bash 도구로 직접 실행하지 않는다
+  - 사용자에게 별도 터미널에서 `npx @sentry/wizard@latest -i nextjs` (또는 감지된 패키지 매니저의 dlx 등가물) 실행을 요청
+  - 사용자가 완료를 알리면 wizard가 생성한 파일 목록을 git status로 확인하여 차이 리포트의 "생성" 항목에 추가
 - 설치됨 → 버전 + 기존 설정 파일 목록을 차이 리포트에 기록 (스킵)
 
 ### Phase 2. 프로젝트 변수 수집
@@ -167,16 +170,32 @@ ldx-skills/skills/sentry-slack-setup/
 
 ### 템플릿 placeholder
 
+`webhook-route.ts.tmpl`이 사용하는 placeholder:
+
 | placeholder | 출처 | 예시 |
 |---|---|---|
 | `{{PROJECT_LABEL}}` | 사용자 입력 | `LifeCanvas` |
 | `{{SENTRY_ORG_URL}}` | 사용자 입력 / 자동 추론 | `https://idstrust-lu.sentry.io` |
 | `{{REPO_COMMIT_BASE_URL}}` | 자동 추론 / 사용자 입력 | `http://.../-/commit` |
 | `{{ALLOWED_TAG_KEYS}}` | 자동 도출 (Sentry 기본 9종 + `domainTagKeys`) | `['browser', 'category', ..., 'lifebookId']` |
-| `{{CATEGORY_UNION}}` | 사용자 입력 (union) | `'lifebook' \| 'export' \| 'viewer'` |
-| `{{DOMAIN_TAG_KEYS}}` | 사용자 입력 (배열) | `['lifebookId']` |
 
-치환은 단순 문자열 치환(별도 템플릿 엔진 불필요). Claude가 템플릿을 Read → 치환 → Write.
+`errors.ts.tmpl`이 사용하는 placeholder:
+
+| placeholder | 출처 | 예시 |
+|---|---|---|
+| `{{CATEGORY_UNION}}` | 사용자 입력 (union) | `'lifebook' \| 'export' \| 'viewer'` |
+
+> `domainTagKeys`는 `.sentry-skill.json`에 기록되고 `allowedTagKeys` 도출에 사용되지만 템플릿 placeholder는 아니다. `errors.ts.tmpl`은 도메인 ID 필드를 코드에 박지 않는 일반 captureError 헬퍼로 두며, 사용자가 도메인별 필드를 필요에 따라 직접 추가한다.
+
+### 직렬화 규칙
+
+| placeholder 타입 | 직렬화 규칙 |
+|---|---|
+| 문자열 | 따옴표 없이 그대로 삽입 |
+| 배열 | TypeScript 단일 따옴표 배열 리터럴 (예: `['a', 'b']`). JSON `[\"a\",\"b\"]` 형태가 아님 |
+| union 타입 | 따옴표 포함된 union (예: `'lifebook' \| 'export'`) |
+
+치환 도구는 `scripts/render.mjs` (Node 18+ ESM). 단순 문자열 치환이 아닌 위 규칙에 따라 직렬화한 뒤 `{{KEY}}`를 치환한다.
 
 ## 7. 안전장치
 
