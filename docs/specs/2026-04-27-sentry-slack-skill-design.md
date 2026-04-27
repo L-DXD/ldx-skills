@@ -84,18 +84,34 @@ ldx-skills/skills/sentry-slack-setup/
   - Sentry org URL
   - `captureError` 카테고리 목록 (쉼표 구분, 빈 입력 시 `['general']` 기본값)
   - 도메인 태그 키 (예: `lifebookId`, 선택)
+- **`allowedTagKeys` 도출 규칙**: 사용자에게 직접 묻지 않고 자동 도출.
+  - 기본 Sentry 태그 9종 고정: `['browser', 'category', 'device', 'environment', 'level', 'os', 'release', 'url', 'replayId']`
+  - 사용자가 입력한 `domainTagKeys`를 기본 9종에 합집합으로 추가
+  - 결과를 `.sentry-skill.json`의 `allowedTagKeys`로 기록
 - 결과를 `.sentry-skill.json`에 저장 (재실행 시 default로 제시)
 
 ### Phase 3. Webhook 라우트 적용
 - `@slack/webhook` 패키지 미설치 시 설치
 - `app/api/sentry-webhook/route.ts` 존재 여부 확인:
-  - 존재 → 차이 분석(dedupe 로직, 라벨, 카테고리 필터, 링크 패턴) → 차이 리포트에 기록 (덮어쓰기 금지)
+  - 존재 → 차이 분석 → 차이 리포트에 기록 (덮어쓰기 금지)
   - 미존재 → `templates/webhook-route.ts.tmpl`을 Phase 2 변수로 치환하여 생성
+- **차이 분석 항목** (각각 발견/누락 여부와 근거 라인을 기록):
+  - dedupe 로직 (`recentWebhooks` Map + `DEDUPE_WINDOW_MS` 패턴)
+  - 프로젝트 라벨 (Slack 메시지 prefix와 `{{PROJECT_LABEL}}` 일치)
+  - 허용 태그 키 배열 (`{{ALLOWED_TAG_KEYS}}`와의 차집합)
+  - replay 링크 패턴 (`/replays/{id}/`)
+  - commit 링크 패턴 (`{{REPO_COMMIT_BASE_URL}}/{release}`)
+  - dry-run 모드 (`SENTRY_WEBHOOK_DRY_RUN`)
 
 ### Phase 4. captureError 헬퍼 적용
 - `lib/shared/errors.ts` 존재 여부 확인:
-  - 존재 → 카테고리 union 차이 리포트
+  - 존재 → 차이 리포트 (덮어쓰기 금지)
   - 미존재 → `templates/errors.ts.tmpl`을 Phase 2 카테고리로 치환하여 생성
+- **차이 분석 항목**:
+  - `ErrorCategory` union 멤버 (`{{CATEGORY_UNION}}`과의 차집합 — 추가 멤버는 사용자 도메인 확장으로 보고 보존)
+  - `captureError` 함수 시그니처 (`(error, options)` 형태와 `options.category` 필수 여부)
+  - `options` 필드 (`level`, `context`, `userId`, `domainTagKeys` 기반 추가 ID 필드)
+  - Sentry scope 태그 설정 (`scope.setTag('category', category)` 등)
 
 ### Phase 5. 환경변수 가이드
 - `references/env-vars.md` 내용 출력
@@ -107,6 +123,29 @@ ldx-skills/skills/sentry-slack-setup/
 - 스킵된 항목과 이유
 - 권장 vs 현재 차이 (특히 webhook dedupe 로직, 카테고리)
 - 수동 단계: Sentry 콘솔에서 Internal Integration 생성, Slack Incoming Webhook URL 발급
+
+**리포트 출력 포맷 (마크다운, 콘솔에 그대로 출력)**:
+
+```markdown
+# sentry-slack-setup 리포트
+
+## 적용 결과
+- ✅ 생성: app/api/sentry-webhook/route.ts
+- ✅ 생성: lib/shared/errors.ts
+- ⏭️  스킵: sentry.server.config.ts (이미 존재, @sentry/nextjs@9.x)
+
+## 차이 (스킵된 항목)
+### app/api/sentry-webhook/route.ts
+- ❌ 누락: dedupe 로직 (`recentWebhooks` Map 패턴 미발견)
+- ⚠️  불일치: 프로젝트 라벨 — 현재 `[MyApp]`, 권장 `[LifeCanvas]`
+- ✅ 일치: replay 링크 패턴
+
+## 다음 단계 (수동)
+1. Sentry 콘솔 > Settings > Custom Integrations에서 Internal Integration 생성
+   - Webhook URL: `<배포 도메인>/api/sentry-webhook`
+2. Slack 워크스페이스에서 Incoming Webhook URL 발급
+3. `.env.local`에 `SENTRY_DSN`, `SLACK_WEBHOOK_URL` 추가
+```
 
 ## 6. 템플릿 변수 및 config 스키마
 
@@ -133,7 +172,7 @@ ldx-skills/skills/sentry-slack-setup/
 | `{{PROJECT_LABEL}}` | 사용자 입력 | `LifeCanvas` |
 | `{{SENTRY_ORG_URL}}` | 사용자 입력 / 자동 추론 | `https://idstrust-lu.sentry.io` |
 | `{{REPO_COMMIT_BASE_URL}}` | 자동 추론 / 사용자 입력 | `http://.../-/commit` |
-| `{{ALLOWED_TAG_KEYS}}` | 사용자 입력 (배열) | `['browser', 'category', ...]` |
+| `{{ALLOWED_TAG_KEYS}}` | 자동 도출 (Sentry 기본 9종 + `domainTagKeys`) | `['browser', 'category', ..., 'lifebookId']` |
 | `{{CATEGORY_UNION}}` | 사용자 입력 (union) | `'lifebook' \| 'export' \| 'viewer'` |
 | `{{DOMAIN_TAG_KEYS}}` | 사용자 입력 (배열) | `['lifebookId']` |
 
@@ -142,6 +181,11 @@ ldx-skills/skills/sentry-slack-setup/
 ## 7. 안전장치
 
 - **파일 덮어쓰기 금지**: 기존 파일은 항상 스킵 + 리포트. 사용자가 명시적으로 "강제 적용"을 요청한 경우에만 Write 허용.
+- **"강제 적용" 트리거 정의**:
+  - 스킬은 CLI 인자가 아닌 자연어 호출 기반이므로 플래그 대신 **명시적 발화**로 발동.
+  - 발동 키워드 예: "강제 적용", "덮어써도 돼", "force overwrite". Claude는 위 표현이 사용자 메시지에 명시적으로 포함될 때만 덮어쓰기 모드로 진입.
+  - 진입 시 Claude는 덮어쓸 파일 목록을 먼저 출력하고 한 번 더 사용자 확인을 받은 뒤 Write 수행 (파괴적 동작 가드).
+  - 기본값은 항상 비활성. 재실행해도 자동 활성되지 않음.
 - **wizard 실행 전 사용자 확인**: 외부 인터랙티브 명령이므로 동의 필수.
 - **`.sentry-skill.json` 충돌**: 기존 파일이 있으면 재실행 모드 진입. 변수는 기존 값을 default로 제시.
 - **카테고리 입력 검증**: 빈 입력은 `['general']`로 보정. 영문 소문자만 허용 (대문자/공백 입력 시 재요청).
@@ -171,3 +215,11 @@ ldx-skills/skills/sentry-slack-setup/
 - `@sentry/wizard@latest` — Sentry 공식 도구. 버전 변경에 따른 마이그레이션은 wizard에 위임.
 - `@sentry/nextjs`, `@slack/webhook` — 사용자 프로젝트의 의존성으로 추가됨.
 - 사용자 프로젝트의 git 작업 트리 — 스킬은 git 위에서 동작한다고 가정.
+
+## 11. 환경 가정
+
+- **Next.js**: 16.x (App Router). 15.x도 호환될 가능성이 높지만 본 스킬은 16.x 기준으로 검증.
+- **Node.js**: 20.x 이상 (Next.js 16 요구사항과 동일).
+- **패키지 매니저**: `pnpm` 우선 가정. `npm`/`yarn` 환경에선 wizard 호출 명령을 해당 매니저에 맞춰 사용자 동의 후 변경 (`pnpm dlx @sentry/wizard@latest -i nextjs` 등).
+- **`@sentry/wizard`**: `latest` 태그를 사용. wizard 자체의 동작 변경은 본 스킬의 책임 범위 밖이며, wizard 실행 결과(생성 파일 목록)는 Phase 1 종료 후 차이 리포트에 그대로 기록.
+- **운영 체제**: macOS / Linux. Windows는 미지원 (path separator, shell 차이로 인한 wizard 동작 차이 미검증).
