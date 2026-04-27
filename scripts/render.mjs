@@ -8,7 +8,7 @@
 // Exits non-zero on missing template/fixture or unresolved placeholders.
 
 import { readFileSync } from 'node:fs'
-import { argv, exit, stderr } from 'node:process'
+import { argv, exit, stderr, stdout } from 'node:process'
 
 if (argv.length !== 4) {
   stderr.write(`Usage: node ${argv[1]} <template> <fixture.json>\n`)
@@ -32,15 +32,18 @@ const serialize = (key, value) => {
 
 let output = template
 for (const [key, value] of Object.entries(fixture)) {
+  if (!/^[A-Z_][A-Z0-9_]*$/.test(key)) {
+    throw new Error(`invalid fixture key: ${key} (must match /^[A-Z_][A-Z0-9_]*$/)`)
+  }
   const serialized = serialize(key, value)
   const pattern = new RegExp(`\\{\\{${key}\\}\\}`, 'g')
   output = output.replace(pattern, serialized)
 }
 
-const leftover = output.match(/\{\{[A-Z_]+\}\}/g)
+const leftover = output.match(/\{\{[A-Za-z0-9_]+\}\}/g)
 if (leftover) {
   stderr.write(`unresolved placeholders: ${[...new Set(leftover)].join(', ')}\n`)
   exit(2)
 }
 
-process.stdout.write(output)
+stdout.write(output)
