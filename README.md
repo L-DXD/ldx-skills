@@ -4,27 +4,22 @@ L-DXD 팀이 함께 사용하는 Claude Code 스킬 모음.
 
 ## 설치 방법
 
-### 1. 프로젝트에 스킬 추가 (심볼릭 링크)
+### 바로 설치 (권장)
 
 ```bash
-# ldx-skills 레포 클론
-git clone https://github.com/L-DXD/ldx-skills.git ~/repos/ldx-skills
-
-# 사용할 프로젝트의 .claude/skills/ 에 심볼릭 링크
-mkdir -p <프로젝트경로>/.claude/skills
-ln -s ~/repos/ldx-skills/skills/sentry-slack-setup <프로젝트경로>/.claude/skills/sentry-slack-setup
+npx degit L-DXD/ldx-skills/skills/sentry-slack-setup .claude/skills/sentry-slack-setup
 ```
 
-### 2. 프로젝트에 스킬 추가 (복사)
+### 심볼릭 링크 (스킬 업데이트 자동 반영)
 
 ```bash
-# 특정 버전의 스킬을 복사
-cp -r ~/repos/ldx-skills/skills/sentry-slack-setup <프로젝트경로>/.claude/skills/
+git clone https://github.com/L-DXD/ldx-skills.git ~/repos/ldx-skills
+ln -s ~/repos/ldx-skills/skills/sentry-slack-setup <프로젝트경로>/.claude/skills/sentry-slack-setup
 ```
 
 > 심볼릭 링크를 사용하면 `git pull`만으로 스킬 업데이트가 반영됩니다.
 
-### 3. Claude Code에서 실행
+### Claude Code에서 실행
 
 ```
 /sentry-slack-setup
