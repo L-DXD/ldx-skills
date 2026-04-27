@@ -1,0 +1,213 @@
+import { IncomingWebhook } from '@slack/webhook'
+import { NextResponse } from 'next/server'
+
+const webhookUrl = process.env.SLACK_WEBHOOK_URL
+
+interface SentryWebhookPayload {
+  action: string
+  installation?: {
+    uuid: string
+  }
+  data: {
+    event: {
+      event_id: string
+      title: string
+      level: string
+      tags: Array<[string, string]>
+      environment?: string
+      issue_id?: string
+    }
+    triggered_rule?: string
+  }
+  actor: {
+    type: string
+    id: string
+    name: string
+  }
+}
+
+const SENTRY_ORG_URL = '{{SENTRY_ORG_URL}}'
+const REPO_COMMIT_BASE = '{{REPO_COMMIT_BASE_URL}}'
+
+const formatSentryPayload = (payload: unknown) => {
+  const webhookData = payload as SentryWebhookPayload
+  const sentryEvent = webhookData.data?.event
+
+  const title = webhookData.data?.event?.title || 'Unknown Error'
+  const tags = sentryEvent?.tags || []
+
+  const allowedTagKeys = {{ALLOWED_TAG_KEYS}}
+
+  const filteredTags = tags.filter((tag) => allowedTagKeys.includes(tag[0]))
+
+  const userTags = {
+    ip: '',
+    id: '',
+    email: '',
+    username: '',
+  }
+
+  tags.forEach(([key, value]) => {
+    if (key === 'user') {
+      if (value.startsWith('ip:')) userTags.ip = value.replace(/^ip:/, '')
+      else if (value.startsWith('id:')) userTags.id = value.replace(/^id:/, '')
+      else userTags.id = value
+    }
+    if (key === 'username') userTags.username = value
+    if (key === 'email') userTags.email = value
+  })
+
+  const userParts: string[] = []
+  if (userTags.ip) userParts.push(userTags.ip)
+  if (userTags.id) userParts.push(userTags.id)
+  if (userTags.email) userParts.push(userTags.email)
+  if (userTags.username) userParts.push(userTags.username)
+
+  const userDisplayValue =
+    userParts.length > 0 ? userParts.join(' | ') : 'Unknown User'
+
+  const levelTag = filteredTags.find((tag) => tag[0] === 'level')
+  const level = levelTag?.[1] || sentryEvent?.level || 'error'
+
+  const environmentTag = filteredTags.find((tag) => tag[0] === 'environment')
+  const environment = environmentTag?.[1] || sentryEvent?.environment || 'N/A'
+
+  const color =
+    level === 'error' || level === 'fatal'
+      ? 'danger'
+      : level === 'warning'
+        ? 'warning'
+        : 'good'
+
+  const emoji =
+    level === 'error' || level === 'fatal'
+      ? '🚨'
+      : level === 'warning'
+        ? '⚠️'
+        : 'ℹ️'
+
+  const fields: Array<{ title: string; value: string; short: boolean }> = []
+
+  fields.push({
+    title: 'Title',
+    value: title,
+    short: false,
+  })
+
+  fields.push({
+    title: 'User',
+    value: userDisplayValue,
+    short: false,
+  })
+
+  const shortKeys = allowedTagKeys.filter((k) => k !== 'url')
+
+  for (const [key, value] of filteredTags) {
+    let displayValue = value
+
+    if (key === 'replayId' && displayValue) {
+      const replayLink = `${SENTRY_ORG_URL}/replays/${displayValue}/`
+      displayValue = `<${replayLink}|Session Replay 보러가기>`
+    }
+
+    if (key === 'release' && displayValue) {
+      const commitUrl = `${REPO_COMMIT_BASE}/${displayValue}`
+      displayValue = `<${commitUrl}|해당 커밋 보러가기>`
+    }
+
+    const fieldTitle = key.charAt(0).toUpperCase() + key.slice(1)
+    const isShort = shortKeys.includes(key)
+
+    fields.push({
+      title: fieldTitle,
+      value: displayValue,
+      short: isShort,
+    })
+  }
+
+  const issueId = webhookData.data?.event?.issue_id
+  if (issueId) {
+    const sentryLink = `${SENTRY_ORG_URL}/issues/${issueId}/`
+    fields.push({
+      title: 'Sentry에서 보기',
+      value: `<${sentryLink}|이슈 보기>`,
+      short: true,
+    })
+  }
+
+  return {
+    text: `${emoji} [{{PROJECT_LABEL}}:${environment}] 새로운 ${level.toUpperCase()} 발생`,
+    attachments: [
+      {
+        color,
+        fields,
+      },
+    ],
+  }
+}
+
+const recentWebhooks = new Map<string, number>()
+const DEDUPE_WINDOW_MS = 5000
+
+export async function POST(request: Request) {
+  if (!webhookUrl) {
+    console.error('❌ SLACK_WEBHOOK_URL이 설정되지 않았습니다.')
+    return NextResponse.json(
+      { error: 'Server configuration error' },
+      { status: 500 },
+    )
+  }
+
+  try {
+    const body = await request.json()
+    const webhookData = body as SentryWebhookPayload
+
+    const eventId = webhookData.data?.event?.event_id
+    if (eventId) {
+      const now = Date.now()
+      const lastCallTime = recentWebhooks.get(eventId)
+      if (lastCallTime && now - lastCallTime < DEDUPE_WINDOW_MS) {
+        return NextResponse.json({ message: 'Duplicate webhook ignored' })
+      }
+      recentWebhooks.set(eventId, now)
+
+      if (recentWebhooks.size > 1000) {
+        const cutoff = now - DEDUPE_WINDOW_MS * 10
+        for (const [id, time] of recentWebhooks.entries()) {
+          if (time < cutoff) {
+            recentWebhooks.delete(id)
+          }
+        }
+      }
+    }
+
+    const slackMessage = formatSentryPayload(body)
+
+    if (process.env.SENTRY_WEBHOOK_DRY_RUN === 'true') {
+      return NextResponse.json({
+        message: 'DRY RUN - not sent to Slack',
+        slackMessage,
+      })
+    }
+
+    const webhook = new IncomingWebhook(webhookUrl)
+    await webhook.send(slackMessage)
+    return NextResponse.json({ message: 'Message sent to Slack' })
+  } catch (error) {
+    console.error('❌ Slack 전송 중 오류 발생:', error)
+    if (error instanceof Error) {
+      console.error('❌ 오류 상세:', {
+        message: error.message,
+        stack: error.stack,
+      })
+    }
+    return NextResponse.json(
+      { error: 'Failed to send message to Slack' },
+      { status: 500 },
+    )
+  }
+}
+
+export async function GET() {
+  return NextResponse.json({ error: 'Method Not Allowed' }, { status: 405 })
+}
