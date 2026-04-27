@@ -53,13 +53,23 @@ Next.js 16 App Router 프로젝트에 Sentry SDK + Slack 알림 webhook + `captu
 
 #### 사용자에게 한 번에 한 개씩 묻기
 
-1. 프로젝트 라벨 (Slack prefix). 추론값을 default로 제시.
-2. repo commit base URL.
-3. Sentry org URL.
-4. `captureError` 카테고리 (쉼표 구분). 빈 입력 → `["general"]`. 영문 소문자만 허용 (대문자/공백 입력 시 재요청).
-5. 도메인 태그 키 (쉼표 구분, 선택). 빈 입력 허용.
+1. 프로젝트 라벨 (`projectLabel`, Slack prefix). 추론값을 default로 제시.
+2. repo commit base URL (`repoCommitBaseUrl`).
+3. Sentry org URL (`sentryOrgUrl`).
+4. `captureError` 카테고리 (`categories`, 쉼표 구분). 빈 입력 → `["general"]`. 영문 소문자만 허용 (대문자/공백 입력 시 재요청).
+5. 도메인 태그 키 (`domainTagKeys`, 쉼표 구분, 선택). 빈 입력 허용.
 
 재실행 모드면 모든 default를 `.sentry-skill.json`의 기존 값으로 채운다.
+
+#### 변수 → 템플릿 placeholder 매핑
+
+| 템플릿 placeholder | 출처 변수 | 직렬화 규칙 |
+|---|---|---|
+| `{{PROJECT_LABEL}}` | `projectLabel` | 문자열 그대로 |
+| `{{REPO_COMMIT_BASE_URL}}` | `repoCommitBaseUrl` | 문자열 그대로 |
+| `{{SENTRY_ORG_URL}}` | `sentryOrgUrl` | 문자열 그대로 |
+| `{{ALLOWED_TAG_KEYS}}` | `allowedTagKeys` | TS 단일 따옴표 배열 (`['a', 'b']`) |
+| `{{CATEGORY_UNION}}` | `categories` | TS union (`'a' \| 'b' \| 'c'`) |
 
 #### `allowedTagKeys` 자동 도출
 
@@ -78,14 +88,16 @@ allowedTagKeys = [...new Set([...SENTRY_DEFAULTS, ...domainTagKeys])].sort()
    - pnpm: `pnpm add @slack/webhook`
    - npm: `npm install @slack/webhook`
    - yarn: `yarn add @slack/webhook`
+
+   설치 실패 시(네트워크/lockfile 충돌 등): phase 중단 → 에러 메시지 사용자에 출력 → 재시도 의사 확인. 사용자가 재시도 거부하면 Phase 3 스킵하고 Phase 6 리포트의 "스킵" 항목에 기록.
 2. `app/api/sentry-webhook/route.ts` 분기:
-   - **존재:** 차이 분석 (Write 안 함). 항목:
-     - dedupe 로직 (`recentWebhooks` Map + `DEDUPE_WINDOW_MS`)
-     - 프로젝트 라벨 (`[<label>:...]` 패턴)
-     - 허용 태그 키 (정의 vs 권장 차집합)
-     - replay 링크 패턴 (`/replays/${id}/`)
-     - commit 링크 패턴 (`<base>/<release>`)
-     - dry-run 처리 (`SENTRY_WEBHOOK_DRY_RUN`)
+   - **존재:** 차이 분석 (Write 안 함). 각 항목을 **누락** / **불일치** / **일치**로 grading하여 Phase 6 리포트에 기록:
+     - dedupe 로직: `recentWebhooks` Map 선언이 없으면 누락. `DEDUPE_WINDOW_MS` 값이 다르면 불일치.
+     - 프로젝트 라벨: `[<label>:` 패턴이 없으면 누락. label이 다르면 불일치(현재값/권장값).
+     - 허용 태그 키: 권장 set (`allowedTagKeys`)와의 차집합 → 부족 키는 누락, 추가 키는 일치(보존).
+     - replay 링크: `/replays/${...}/` 패턴 부재 → 누락.
+     - commit 링크: `${...}/${displayValue}` 형태 부재 또는 base URL 다름 → 누락/불일치.
+     - dry-run 처리: `SENTRY_WEBHOOK_DRY_RUN` 분기 부재 → 누락.
    - **미존재:** `templates/webhook-route.ts.tmpl`을 Read → Phase 2 변수로 치환 → Write
 3. 치환은 다음 직렬화 규칙으로 수행:
    - 문자열: 따옴표 없이 그대로
@@ -96,11 +108,11 @@ allowedTagKeys = [...new Set([...SENTRY_DEFAULTS, ...domainTagKeys])].sort()
 ### Phase 4. captureError 헬퍼 적용
 
 1. `lib/shared/errors.ts` 분기:
-   - **존재:** 차이 분석. 항목:
-     - `ErrorCategory` union 멤버 (추가 멤버는 사용자 도메인 확장으로 보존)
-     - `captureError(error, options)` 시그니처
-     - `options` 필드 (`level`, `context`, `userId`)
-     - `scope.setTag` 호출 패턴
+   - **존재:** 차이 분석 (Write 안 함). 각 항목을 **누락** / **불일치** / **일치**로 grading:
+     - `ErrorCategory` union: 권장 멤버 부재 → 누락. 추가 멤버는 사용자 도메인 확장으로 보존(일치).
+     - `captureError(error, options)` 시그니처: 함수 부재 → 누락. 시그니처 다름 → 불일치.
+     - `options` 필드(`level`, `context`, `userId`): 부재 → 누락.
+     - `scope.setTag('category', ...)` 호출 부재 → 누락.
    - **미존재:** `templates/errors.ts.tmpl`을 Read → `{{CATEGORY_UNION}}`을 union 직렬화로 치환 → Write
 2. 도메인별 ID 필드(예: `lifebookId`)는 템플릿이 자동 추가하지 않는다. 사용자 안내: "도메인별 ID 필드가 필요하면 errors.ts에 직접 추가하세요."
 
@@ -138,6 +150,8 @@ allowedTagKeys = [...new Set([...SENTRY_DEFAULTS, ...domainTagKeys])].sort()
 ### 파일 덮어쓰기 금지 (기본)
 
 기존 파일은 항상 스킵 + 리포트. Write 안 함.
+
+이 가드는 **이 스킬이 Write 도구로 생성하는 파일**(`app/api/sentry-webhook/route.ts`, `lib/shared/errors.ts`, `.sentry-skill.json`)에만 적용된다. Sentry wizard나 패키지 매니저(`pnpm add` 등)가 `package.json`/`next.config.*`/`instrumentation.ts` 등을 수정하는 것은 별도 — Phase 1/3 안내에 따라 사용자 동의 후 진행한다.
 
 ### 강제 적용 (예외)
 
