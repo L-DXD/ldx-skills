@@ -49,13 +49,13 @@ Next.js 16 App Router 프로젝트에 Sentry SDK + Slack 알림 webhook + `captu
 |---|---|---|
 | `projectLabel` | `package.json`의 `name`을 PascalCase 변환 | 사용자 입력 |
 | `repoCommitBaseUrl` | `git remote get-url origin` (GitLab `/-/commit`, GitHub `/commit`) | 사용자 입력 |
-| `sentryOrgUrl` | 기본값 `https://idstrust-lu.sentry.io` | 사용자 확인 후 변경 가능 |
+| `sentryOrgUrl` | **고정 기본값** `https://idstrust-lu.sentry.io` (프로젝트 파일에서 추론하지 않음) | 사용자 확인 후 변경 가능 |
 
 #### 사용자에게 한 번에 한 개씩 묻기
 
 1. 프로젝트 라벨 (`projectLabel`, Slack prefix). 추론값을 default로 제시.
 2. repo commit base URL (`repoCommitBaseUrl`).
-3. Sentry org URL (`sentryOrgUrl`). 기본값 `https://idstrust-lu.sentry.io` 제시 → 엔터(빈 입력)면 확정, 다른 URL 입력 시 해당 값 사용.
+3. Sentry org URL (`sentryOrgUrl`). **항상** `https://idstrust-lu.sentry.io`를 default로 제시한다 (프로젝트 내 `sentry.properties`, `next.config.*` 등에서 다른 org URL이 발견되더라도 무시). 엔터(빈 입력)면 확정, 다른 URL 입력 시 해당 값 사용.
 4. `captureError` 카테고리 (`categories`, 쉼표 구분). 빈 입력 → `["general"]`. 영문 소문자만 허용 (대문자/공백 입력 시 재요청).
 5. 도메인 태그 키 (`domainTagKeys`, 쉼표 구분, 선택). 빈 입력 허용.
 
@@ -142,8 +142,24 @@ allowedTagKeys = [...new Set([...SENTRY_DEFAULTS, ...domainTagKeys])].sort()
 - ✅ 일치: <항목>
 
 ## 다음 단계 (수동)
+````
+
+**조건부 출력:** `.env.local`에 `SLACK_WEBHOOK_URL`이 이미 설정되어 있고, 차이 섹션에 ❌ 누락이나 ⚠️ 불일치가 하나도 없으면 → "다음 단계" 섹션을 아래로 대체:
+
+```markdown
+## 다음 단계
+모든 산출물이 권장 구조와 일치하고 환경변수도 설정되어 있습니다. 추가 작업이 필요 없습니다.
+```
+
+그 외에는 **해당하는 항목만** 출력:
+
+````markdown
+## 다음 단계 (수동)
+<!-- .env.local에 SLACK_WEBHOOK_URL 미설정 또는 .env.local 미존재 시에만 -->
 1. references/sentry-console-setup.md 참조하여 Internal Integration 생성
 2. references/env-vars.md 참조하여 .env.local 작성 (Webhook URL은 Confluence 참고)
+<!-- 차이 섹션에 ❌ 누락 또는 ⚠️ 불일치가 있을 때만 -->
+3. 위 차이 항목을 참고하여 해당 파일 수동 수정
 ````
 
 ## 안전장치
