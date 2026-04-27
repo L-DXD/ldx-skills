@@ -49,13 +49,13 @@ Next.js 16 App Router 프로젝트에 Sentry SDK + Slack 알림 webhook + `captu
 |---|---|---|
 | `projectLabel` | `package.json`의 `name`을 PascalCase 변환 | 사용자 입력 |
 | `repoCommitBaseUrl` | `git remote get-url origin` (GitLab `/-/commit`, GitHub `/commit`) | 사용자 입력 |
-| `sentryOrgUrl` | `.sentryclirc` 또는 사용자 입력 | 사용자 입력 |
+| `sentryOrgUrl` | 기본값 `https://idstrust-lu.sentry.io` | 사용자 확인 후 변경 가능 |
 
 #### 사용자에게 한 번에 한 개씩 묻기
 
 1. 프로젝트 라벨 (`projectLabel`, Slack prefix). 추론값을 default로 제시.
 2. repo commit base URL (`repoCommitBaseUrl`).
-3. Sentry org URL (`sentryOrgUrl`).
+3. Sentry org URL (`sentryOrgUrl`). 기본값 `https://idstrust-lu.sentry.io` 제시 → 엔터(빈 입력)면 확정, 다른 URL 입력 시 해당 값 사용.
 4. `captureError` 카테고리 (`categories`, 쉼표 구분). 빈 입력 → `["general"]`. 영문 소문자만 허용 (대문자/공백 입력 시 재요청).
 5. 도메인 태그 키 (`domainTagKeys`, 쉼표 구분, 선택). 빈 입력 허용.
 
@@ -74,7 +74,7 @@ Next.js 16 App Router 프로젝트에 Sentry SDK + Slack 알림 webhook + `captu
 #### `allowedTagKeys` 자동 도출
 
 ```js
-const SENTRY_DEFAULTS = ['browser', 'category', 'device', 'environment', 'level', 'os', 'release', 'replayId', 'url']
+const SENTRY_DEFAULTS = ['browser', 'category', 'device', 'environment', 'level', 'os', 'release', 'url']
 allowedTagKeys = [...new Set([...SENTRY_DEFAULTS, ...domainTagKeys])].sort()
 ```
 
@@ -95,7 +95,6 @@ allowedTagKeys = [...new Set([...SENTRY_DEFAULTS, ...domainTagKeys])].sort()
      - dedupe 로직: `recentWebhooks` Map 선언이 없으면 누락. `DEDUPE_WINDOW_MS` 값이 다르면 불일치.
      - 프로젝트 라벨: `[<label>:` 패턴이 없으면 누락. label이 다르면 불일치(현재값/권장값).
      - 허용 태그 키: 권장 set (`allowedTagKeys`)와의 차집합 → 부족 키는 누락, 추가 키는 일치(보존).
-     - replay 링크: `/replays/${...}/` 패턴 부재 → 누락.
      - commit 링크: `${...}/${displayValue}` 형태 부재 또는 base URL 다름 → 누락/불일치.
      - dry-run 처리: `SENTRY_WEBHOOK_DRY_RUN` 분기 부재 → 누락.
    - **미존재:** `templates/webhook-route.ts.tmpl`을 Read → Phase 2 변수로 치환 → Write
@@ -120,6 +119,9 @@ allowedTagKeys = [...new Set([...SENTRY_DEFAULTS, ...domainTagKeys])].sort()
 
 `references/env-vars.md` 내용 출력. `.env.local` 자동 작성하지 않음.
 
+`SLACK_WEBHOOK_URL` 안내 시, Confluence 페이지에 프로젝트별 값이 등록되어 있음을 함께 안내:
+> https://idstrust-dxteam.atlassian.net/wiki/spaces/dxd/pages/46694433/Slack+Incoming+Webhook+URL
+
 `.gitignore`에 `.env.local` 누락 시 안내.
 
 ### Phase 6. 차이 리포트
@@ -141,8 +143,7 @@ allowedTagKeys = [...new Set([...SENTRY_DEFAULTS, ...domainTagKeys])].sort()
 
 ## 다음 단계 (수동)
 1. references/sentry-console-setup.md 참조하여 Internal Integration 생성
-2. references/slack-app-setup.md 참조하여 Slack Webhook URL 발급
-3. references/env-vars.md 참조하여 .env.local 작성
+2. references/env-vars.md 참조하여 .env.local 작성 (Webhook URL은 Confluence 참고)
 ````
 
 ## 안전장치
@@ -191,6 +192,5 @@ wizard는 인터랙티브 명령이다. Bash 도구로 직접 실행하면 hang/
 - `templates/errors.ts.tmpl` — Phase 4
 - `references/env-vars.md` — Phase 5
 - `references/sentry-console-setup.md` — Phase 6 다음 단계
-- `references/slack-app-setup.md` — Phase 6 다음 단계
 - `references/test-scenarios.md` — 스킬 검증 (스킬 동작에는 미사용)
 - `config-schema.md` — `.sentry-skill.json` 스키마

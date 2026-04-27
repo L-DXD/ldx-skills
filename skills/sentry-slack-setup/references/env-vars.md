@@ -1,15 +1,15 @@
 # 환경변수 가이드
 
-스킬 적용 후 사용자 프로젝트의 `.env.local`에 다음 키를 추가해야 한다.
 스킬은 `.env.local`을 자동 작성하지 않는다.
 
 ## 필수
 
 | 키 | 설명 | 예시 |
 |---|---|---|
-| `SENTRY_DSN` | Sentry 프로젝트 DSN | `https://abcdef@oXXXXX.ingest.sentry.io/YYYY` |
-| `NEXT_PUBLIC_SENTRY_DSN` | 클라이언트 측 동일 DSN | 위와 동일 |
 | `SLACK_WEBHOOK_URL` | Slack Incoming Webhook URL | `https://hooks.slack.com/services/T.../B.../...` |
+
+> **SLACK_WEBHOOK_URL 값 참고:** 프로젝트별 Webhook URL은 Confluence에 등록되어 있다.
+> https://idstrust-dxteam.atlassian.net/wiki/spaces/dxd/pages/46694433/Slack+Incoming+Webhook+URL
 
 ## 선택
 

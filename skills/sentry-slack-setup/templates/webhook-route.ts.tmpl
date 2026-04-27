@@ -105,11 +105,6 @@ const formatSentryPayload = (payload: unknown) => {
   for (const [key, value] of filteredTags) {
     let displayValue = value
 
-    if (key === 'replayId' && displayValue) {
-      const replayLink = `${SENTRY_ORG_URL}/replays/${displayValue}/`
-      displayValue = `<${replayLink}|Session Replay 보러가기>`
-    }
-
     if (key === 'release' && displayValue) {
       const commitUrl = `${REPO_COMMIT_BASE}/${displayValue}`
       displayValue = `<${commitUrl}|해당 커밋 보러가기>`

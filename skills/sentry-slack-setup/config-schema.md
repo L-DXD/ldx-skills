@@ -9,17 +9,17 @@
 |---|---|---|---|
 | `version` | `number` | ✅ | 스키마 버전. 항상 `1` |
 | `projectLabel` | `string` | ✅ | Slack 메시지 prefix (예: `LifeCanvas`) |
-| `sentryOrgUrl` | `string` | ✅ | Sentry organization URL |
+| `sentryOrgUrl` | `string` | ✅ | Sentry organization URL. 기본값 `https://idstrust-lu.sentry.io` |
 | `repoCommitBaseUrl` | `string` | ✅ | 저장소 커밋 base URL. GitLab은 `/-/commit`, GitHub은 `/commit` |
 | `categories` | `string[]` | ✅ | `captureError` 카테고리 멤버. 빈 배열이면 `['general']` |
-| `allowedTagKeys` | `string[]` | ✅ | Slack에 노출할 Sentry 태그 키. 자동 도출 (Sentry 기본 9종 + `domainTagKeys`) |
+| `allowedTagKeys` | `string[]` | ✅ | Slack에 노출할 Sentry 태그 키. 자동 도출 (Sentry 기본 8종 + `domainTagKeys`) |
 | `domainTagKeys` | `string[]` | ⬜️ | 프로젝트 도메인별 태그 (예: `["lifebookId"]`) |
 | `appliedAt` | `string` | ✅ | ISO8601 날짜 |
 | `skippedItems` | `string[]` | ✅ | 스킵된 산출물 경로 목록 |
 
-## Sentry 기본 태그 9종
+## Sentry 기본 태그 8종
 
-`['browser', 'category', 'device', 'environment', 'level', 'os', 'release', 'replayId', 'url']`
+`['browser', 'category', 'device', 'environment', 'level', 'os', 'release', 'url']`
 
 ## 예시
 
@@ -30,7 +30,7 @@
   "sentryOrgUrl": "https://idstrust-lu.sentry.io",
   "repoCommitBaseUrl": "http://10.0.101.108:3000/share/dw-life-platform-group/dw-life-platform-frontend/-/commit",
   "categories": ["lifebook", "export", "viewer"],
-  "allowedTagKeys": ["browser", "category", "device", "environment", "level", "lifebookId", "os", "release", "replayId", "url"],
+  "allowedTagKeys": ["browser", "category", "device", "environment", "level", "lifebookId", "os", "release", "url"],
   "domainTagKeys": ["lifebookId"],
   "appliedAt": "2026-04-27",
   "skippedItems": []
