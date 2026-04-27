@@ -1,0 +1,46 @@
+import * as Sentry from '@sentry/nextjs'
+
+export type ErrorCategory = {{CATEGORY_UNION}}
+
+export type ErrorLevel = 'fatal' | 'error' | 'warning'
+
+interface CaptureErrorOptions {
+  category: ErrorCategory
+  level?: ErrorLevel
+  context?: Record<string, unknown>
+  userId?: string
+}
+
+export function shouldCaptureError(statusCode?: number): boolean {
+  if (statusCode === undefined) return true
+  return statusCode >= 500
+}
+
+export function captureError(
+  error: unknown,
+  options: CaptureErrorOptions,
+): void {
+  const { category, level = 'error', context, userId } = options
+
+  const statusCode =
+    (error as { statusCode?: number; status?: number })?.statusCode ??
+    (error as { statusCode?: number; status?: number })?.status
+  if (statusCode !== undefined && !shouldCaptureError(statusCode)) {
+    return
+  }
+
+  Sentry.withScope((scope) => {
+    scope.setTag('category', category)
+    scope.setLevel(level)
+
+    if (userId) {
+      scope.setUser({ id: userId })
+    }
+
+    if (context) {
+      scope.setContext('custom', context)
+    }
+
+    Sentry.captureException(error)
+  })
+}
