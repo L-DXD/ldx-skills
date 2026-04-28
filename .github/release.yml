@@ -1,18 +1,25 @@
 changelog:
   categories:
-    - title: "🚀 새 스킬"
+    - title: "New Skills"
       labels:
         - feat
-    - title: "🐛 수정"
+    - title: "Bug Fixes & Improvements"
       labels:
         - fix
-    - title: "🔧 리팩토링"
-      labels:
         - refactor
-    - title: "📝 문서"
+        - perf
+    - title: "Documentation"
       labels:
         - docs
-    - title: "🧹 기타"
+    - title: "CI / Infrastructure"
+      labels:
+        - ci
+        - build
+    - title: "Maintenance"
       labels:
         - chore
+        - style
+        - test
+    - title: "Other Changes"
+      labels:
         - "*"
