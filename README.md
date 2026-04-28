@@ -66,16 +66,9 @@ skills/<skill-name>/
 1. `main`에서 브랜치 생성
 2. 작업 후 PR 생성
 3. 리뷰 후 merge
-4. 릴리즈가 필요하면 `main`에서 태그 생성 (`v1.x.x`)
+4. PR merge 시 자동 릴리즈 (버전은 PR 제목 기준: `feat` → minor, 그 외 → patch)
 
-### 릴리즈
-
-```bash
-# 태그 생성 + GitHub Release
-gh release create v1.x.x --title "v1.x.x" --generate-notes
-```
-
-릴리즈 후 스킬을 사용하는 프로젝트에서 최신 버전을 반영:
+### 스킬 업데이트 (사용하는 프로젝트에서)
 
 ```bash
 npx degit L-DXD/ldx-skills/skills/<skill-name> .claude/skills/<skill-name> --force
