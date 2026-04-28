@@ -1,0 +1,18 @@
+changelog:
+  categories:
+    - title: "🚀 새 스킬"
+      labels:
+        - feat
+    - title: "🐛 수정"
+      labels:
+        - fix
+    - title: "🔧 리팩토링"
+      labels:
+        - refactor
+    - title: "📝 문서"
+      labels:
+        - docs
+    - title: "🧹 기타"
+      labels:
+        - chore
+        - "*"
