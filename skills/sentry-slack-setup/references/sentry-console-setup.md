@@ -7,7 +7,7 @@ Sentry 콘솔 > **Settings** > **Custom Integrations** > **Create New Integratio
 | 필드 | 값 |
 |---|---|
 | Name | 예: `Slack Webhook Notifier` |
-| Webhook URL | `<배포 도메인>/api/sentry-webhook` |
+| Webhook URL | `<배포 도메인>/api/sentry-webhook` (예: `https://dw-event-platform.vercel.app/api/sentry-webhook`) |
 | Permissions | `Issue & Event: Read` (최소) |
 | Webhooks 이벤트 | `issue` 또는 `error` 체크 |
 
